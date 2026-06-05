@@ -4,6 +4,7 @@ global:
 
 rule_files:
   - /etc/prometheus/alert.rules.yml
+  - /etc/prometheus/rules/*.yml
 
 alerting:
   alertmanagers:
@@ -49,4 +50,3 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: blackbox-exporter:9115
-

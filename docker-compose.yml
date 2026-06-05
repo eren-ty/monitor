@@ -12,7 +12,7 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus:/etc/prometheus:ro
-      - prometheus-data:/prometheus
+      - ${MONITORING_DATA_DIR:-/data/monitoring}/prometheus:/prometheus
     depends_on:
       - alertmanager
 
@@ -28,7 +28,7 @@ services:
       - "9093:9093"
     volumes:
       - ./alertmanager:/etc/alertmanager:ro
-      - alertmanager-data:/alertmanager
+      - ${MONITORING_DATA_DIR:-/data/monitoring}/alertmanager:/alertmanager
 
   grafana:
     image: grafana/grafana:11.2.0
@@ -42,7 +42,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - grafana-data:/var/lib/grafana
+      - ${MONITORING_DATA_DIR:-/data/monitoring}/grafana:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
@@ -90,12 +90,6 @@ services:
       DINGTALK_SECRET: ${DINGTALK_SECRET:-}
       LARK_WEBHOOK_URL: ${LARK_WEBHOOK_URL:-}
       LARK_SECRET: ${LARK_SECRET:-}
-      ALERT_TITLE_PREFIX: ${ALERT_TITLE_PREFIX:-Monitoring Alert}
+      ALERT_TITLE_PREFIX: ${ALERT_TITLE_PREFIX:-监控告警}
     ports:
       - "8080:8080"
-
-volumes:
-  prometheus-data:
-  alertmanager-data:
-  grafana-data:
-

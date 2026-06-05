@@ -1,6 +1,6 @@
 # Prometheus + Grafana + Alertmanager 监控告警栈
 
-这是一个基于 Docker Compose 的一键部署监控项目，包含 Prometheus、Grafana、Alertmanager、Node Exporter、cAdvisor、Blackbox Exporter，以及一个内置告警转发服务，用于把 Alertmanager 告警发送到钉钉和 Lark/飞书机器人。
+这是一个基于 Docker Compose 的一键部署监控项目，包含 Prometheus、Grafana、Alertmanager、Node Exporter、cAdvisor、Blackbox Exporter，以及一个内置告警转发服务，用于把 Alertmanager 中文告警发送到钉钉和 Lark/飞书机器人。
 
 ## 组件
 
@@ -18,6 +18,7 @@
 ```bash
 cp .env.example .env
 vim .env
+sudo ./scripts/prepare-data-dir.sh
 ./scripts/deploy.sh
 ```
 
@@ -47,6 +48,50 @@ LARK_SECRET=xxxx
 如果机器人没有开启签名校验，对应 `*_SECRET` 可以留空。
 
 Alertmanager 默认会把所有告警发给 `alert-webhook` 服务，再由它转发到钉钉和 Lark。告警规则在 `prometheus/alert.rules.yml`。
+
+告警消息默认使用中文字段：
+
+- 告警名称
+- 告警级别
+- 当前状态
+- 监控任务
+- 实例地址
+- 触发时间 / 恢复时间
+- 告警摘要
+- 告警描述
+
+标题前缀可通过 `.env` 调整：
+
+```bash
+ALERT_TITLE_PREFIX=监控告警
+```
+
+## 数据持久化
+
+Prometheus、Alertmanager、Grafana 的数据默认挂载到宿主机 `/data/monitoring`：
+
+```text
+/data/monitoring/prometheus
+/data/monitoring/alertmanager
+/data/monitoring/grafana
+```
+
+如需改成其他目录，编辑 `.env`：
+
+```bash
+MONITORING_DATA_DIR=/data/monitoring
+```
+
+首次部署前执行：
+
+```bash
+sudo ./scripts/prepare-data-dir.sh
+```
+
+该脚本会创建数据目录，并设置容器运行用户所需权限：
+
+- Prometheus / Alertmanager: `65534:65534`
+- Grafana: `472:472`
 
 ## 监控目标
 
@@ -150,6 +195,6 @@ make validate
 
 - 修改 Grafana 默认密码。
 - 不要把 `.env` 提交到 Git。
+- 定期备份 `/data/monitoring`。
 - 服务器防火墙只开放需要访问的端口。
 - Linux 服务器更适合采集宿主机和容器指标；Docker Desktop 环境下部分宿主机挂载指标可能不完整。
-

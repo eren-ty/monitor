@@ -7,8 +7,8 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "Instance {{ $labels.instance }} is down"
-          description: "{{ $labels.job }} target {{ $labels.instance }} has been down for more than 1 minute."
+          summary: "实例 {{ $labels.instance }} 已离线"
+          description: "监控任务 {{ $labels.job }} 的目标 {{ $labels.instance }} 已连续 1 分钟不可达。"
 
       - alert: HighCpuUsage
         expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
@@ -16,8 +16,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "High CPU usage on {{ $labels.instance }}"
-          description: "CPU usage is above 85% for more than 5 minutes."
+          summary: "实例 {{ $labels.instance }} CPU 使用率过高"
+          description: "CPU 使用率已连续 5 分钟超过 85%。"
 
       - alert: HighMemoryUsage
         expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
@@ -25,8 +25,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "High memory usage on {{ $labels.instance }}"
-          description: "Memory usage is above 85% for more than 5 minutes."
+          summary: "实例 {{ $labels.instance }} 内存使用率过高"
+          description: "内存使用率已连续 5 分钟超过 85%。"
 
       - alert: LowDiskSpace
         expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"})) * 100 > 85
@@ -34,8 +34,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Low disk space on {{ $labels.instance }}"
-          description: "Filesystem {{ $labels.mountpoint }} usage is above 85%."
+          summary: "实例 {{ $labels.instance }} 磁盘空间不足"
+          description: "挂载点 {{ $labels.mountpoint }} 使用率已超过 85%。"
 
   - name: endpoint.rules
     rules:
@@ -45,6 +45,5 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "Endpoint {{ $labels.instance }} is unavailable"
-          description: "Blackbox probe has failed for more than 2 minutes."
-
+          summary: "HTTP 探测目标 {{ $labels.instance }} 不可用"
+          description: "Blackbox HTTP 探测已连续 2 分钟失败。"

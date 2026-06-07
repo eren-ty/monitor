@@ -15,11 +15,12 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-mkdir -p "$DATA_DIR/prometheus" "$DATA_DIR/alertmanager" "$DATA_DIR/grafana"
+mkdir -p "$DATA_DIR/prometheus" "$DATA_DIR/alertmanager" "$DATA_DIR/grafana" "$DATA_DIR/consul"
 
 chown -R 65534:65534 "$DATA_DIR/prometheus" "$DATA_DIR/alertmanager"
 chown -R 472:472 "$DATA_DIR/grafana"
+chown -R 100:100 "$DATA_DIR/consul"
 
-chmod 0755 "$DATA_DIR" "$DATA_DIR/prometheus" "$DATA_DIR/alertmanager" "$DATA_DIR/grafana"
+chmod 0755 "$DATA_DIR" "$DATA_DIR/prometheus" "$DATA_DIR/alertmanager" "$DATA_DIR/grafana" "$DATA_DIR/consul"
 
 echo "Prepared data directories under $DATA_DIR"

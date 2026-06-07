@@ -1,4 +1,33 @@
 services:
+  consul:
+    image: hashicorp/consul:1.20
+    container_name: monitoring-consul
+    restart: unless-stopped
+    entrypoint:
+      - /bin/sh
+      - -ec
+    command:
+      - |
+        exec consul agent \
+          -server \
+          -bootstrap-expect=1 \
+          -ui \
+          -client=0.0.0.0 \
+          -datacenter="${CONSUL_DATACENTER:-dc1}" \
+          -data-dir=/consul/data \
+          $${CONSUL_ADVERTISE_ADDR:+-advertise="$${CONSUL_ADVERTISE_ADDR}"}
+    environment:
+      CONSUL_ADVERTISE_ADDR: ${CONSUL_ADVERTISE_ADDR:-}
+    ports:
+      - "8500:8500"
+      - "8300:8300"
+      - "8301:8301"
+      - "8301:8301/udp"
+      - "8600:8600"
+      - "8600:8600/udp"
+    volumes:
+      - ${MONITORING_DATA_DIR:-/data/monitoring}/consul:/consul/data
+
   prometheus:
     image: prom/prometheus:v2.54.1
     container_name: monitoring-prometheus
@@ -14,6 +43,7 @@ services:
       - ./prometheus:/etc/prometheus:ro
       - ${MONITORING_DATA_DIR:-/data/monitoring}/prometheus:/prometheus
     depends_on:
+      - consul
       - alertmanager
 
   alertmanager:
@@ -57,6 +87,20 @@ services:
     pid: host
     volumes:
       - /:/host:ro,rslave
+
+  consul-register-local-node:
+    image: curlimages/curl:8.10.1
+    container_name: monitoring-consul-register-local-node
+    restart: on-failure
+    depends_on:
+      - consul
+      - node-exporter
+    command:
+      - sh
+      - -ec
+      - |
+        until curl -fsS http://consul:8500/v1/status/leader >/dev/null; do sleep 2; done
+        curl -fsS -X PUT --data '{"ID":"node-exporter-local","Name":"node-exporter","Address":"node-exporter","Port":9100,"Tags":["local","docker"],"Meta":{"env":"local","hostname":"docker-host"},"Check":{"TCP":"node-exporter:9100","Interval":"15s","Timeout":"3s"}}' http://consul:8500/v1/agent/service/register
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.49.1

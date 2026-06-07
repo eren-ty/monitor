@@ -1,6 +1,6 @@
 # Prometheus + Grafana + Alertmanager 监控告警栈
 
-这是一个基于 Docker Compose 的一键部署监控项目，包含 Prometheus、Grafana、Alertmanager、Node Exporter、cAdvisor、Blackbox Exporter，以及一个内置告警转发服务，用于把 Alertmanager 中文告警发送到钉钉和 Lark/飞书机器人。
+这是一个基于 Docker Compose 的一键部署监控项目，包含 Prometheus、Grafana、Alertmanager、Consul、Node Exporter、cAdvisor、Blackbox Exporter，以及一个内置告警转发服务，用于把 Alertmanager 中文告警发送到钉钉和 Lark/飞书机器人。
 
 ## 组件
 
@@ -9,6 +9,7 @@
 | Grafana | http://localhost:3000 | 默认账号来自 `.env` |
 | Prometheus | http://localhost:9090 | 指标采集和告警规则 |
 | Alertmanager | http://localhost:9093 | 告警聚合和分发 |
+| Consul | http://localhost:8500 | 服务发现和节点注册 |
 | Webhook Relay | http://localhost:8080/healthz | 钉钉和 Lark 告警转发 |
 
 ## 快速部署
@@ -37,6 +38,7 @@ make deploy
 - Grafana: `http://服务器IP:3000`
 - Prometheus: `http://服务器IP:9090`
 - Alertmanager: `http://服务器IP:9093`
+- Consul: `http://服务器IP:8500`
 
 ## 部署与维护手册
 
@@ -65,6 +67,14 @@ vim .env
 - `LARK_WEBHOOK_URL`
 - `LARK_SECRET`
 - `MONITORING_DATA_DIR`
+- `CONSUL_DATACENTER`
+- `CONSUL_ADVERTISE_ADDR`
+
+如果需要其他服务器通过 Consul 自动注册，`CONSUL_ADVERTISE_ADDR` 必须设置为监控服务器的内网 IP，例如：
+
+```bash
+CONSUL_ADVERTISE_ADDR=192.168.1.100
+```
 
 4. 准备数据目录：
 
@@ -194,23 +204,63 @@ docker compose up -d --build --remove-orphans
 journalctl -u monitoring-auto-update.service -n 100 --no-pager
 ```
 
-### 添加监控
+### 添加服务器监控
 
-添加一台服务器监控时，先在目标服务器部署 `node_exporter` 并开放 `9100` 端口，然后在本项目中修改：
+本项目使用 Consul 做服务发现。Prometheus 通过 `consul_sd_configs` 自动发现注册到 Consul 的 `node-exporter` 服务，新增服务器不需要修改 `prometheus/prometheus.yml`。
 
-```yaml
-# prometheus/prometheus.yml
-- job_name: node-servers
-  static_configs:
-    - targets:
-        - 192.168.1.10:9100
-        - 192.168.1.11:9100
-```
-
-重启 Prometheus：
+监控服务器 `.env` 中建议先设置：
 
 ```bash
-docker compose restart prometheus
+CONSUL_ADVERTISE_ADDR=监控服务器内网IP
+```
+
+监控服务器需要开放这些端口给被监控服务器：
+
+```text
+8300/tcp    Consul RPC
+8301/tcp    Consul LAN gossip
+8301/udp    Consul LAN gossip
+8500/tcp    Consul UI/API，可按需限制来源
+```
+
+Prometheus 抓取远程 `node_exporter` 时，监控服务器还需要能访问被监控服务器：
+
+```text
+9100/tcp    node_exporter
+```
+
+在被监控服务器上执行：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/eren-ty/monitor/main/scripts/install-node-exporter-consul.sh -o install-node-exporter-consul.sh
+sudo CONSUL_SERVER=监控服务器IP NODE_ENV=prod NODE_NAME=web-01 sh install-node-exporter-consul.sh
+```
+
+参数说明：
+
+- `CONSUL_SERVER`: 监控服务器 IP，必填。
+- `NODE_ENV`: 环境标签，例如 `prod`、`test`、`dev`。
+- `NODE_NAME`: 节点名称，建议使用业务主机名。
+- `ADVERTISE_ADDR`: 当前服务器被 Prometheus 访问的 IP，不填时脚本自动取第一个本机 IP。
+- `CONSUL_DATACENTER`: Consul 数据中心名称，默认 `dc1`。
+
+注册成功后可以在 Consul UI 查看：
+
+```text
+http://监控服务器IP:8500
+```
+
+Prometheus targets 页面会自动出现 `consul-node-exporter`：
+
+```text
+http://监控服务器IP:9090/targets
+```
+
+删除某台服务器时，在被监控服务器停止 agent：
+
+```bash
+cd /opt/monitor-agent
+docker compose down
 ```
 
 添加 HTTP/HTTPS 地址探测：
@@ -300,6 +350,7 @@ Prometheus、Alertmanager、Grafana 的数据默认挂载到宿主机 `/data/mon
 /data/monitoring/prometheus
 /data/monitoring/alertmanager
 /data/monitoring/grafana
+/data/monitoring/consul
 ```
 
 如需改成其他目录，编辑 `.env`：
@@ -318,6 +369,7 @@ sudo ./scripts/prepare-data-dir.sh
 
 - Prometheus / Alertmanager: `65534:65534`
 - Grafana: `472:472`
+- Consul: `100:100`
 
 ## 监控目标
 
@@ -325,6 +377,7 @@ sudo ./scripts/prepare-data-dir.sh
 
 - 当前宿主机指标：`node-exporter`
 - Docker 容器指标：`cadvisor`
+- Consul 自动注册的远程服务器：`consul-node-exporter`
 - Prometheus、Alertmanager 自身指标
 - Blackbox HTTP 探测示例：`https://example.com`
 
@@ -423,5 +476,6 @@ make validate
 - 修改 Grafana 默认密码。
 - 不要把 `.env` 提交到 Git。
 - 定期备份 `/data/monitoring`。
-- 服务器防火墙只开放需要访问的端口。
+- 服务器防火墙只开放需要访问的端口，尤其是 Consul 的 `8300`、`8301`、`8500` 和 node_exporter 的 `9100`。
+- 如果服务器跨公网通信，建议使用内网、VPN 或安全组限制 Consul 和 node_exporter 访问来源。
 - Linux 服务器更适合采集宿主机和容器指标；Docker Desktop 环境下部分宿主机挂载指标可能不完整。

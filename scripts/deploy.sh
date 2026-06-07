@@ -14,7 +14,7 @@ DATA_DIR="$(
     | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s/^"//; s/"$//; s/^'\''//; s/'\''$//'
 )"
 DATA_DIR="${DATA_DIR:-/data/monitoring}"
-if ! mkdir -p "$DATA_DIR/prometheus" "$DATA_DIR/alertmanager" "$DATA_DIR/grafana" 2>/dev/null; then
+if ! mkdir -p "$DATA_DIR/prometheus" "$DATA_DIR/alertmanager" "$DATA_DIR/grafana" "$DATA_DIR/consul" 2>/dev/null; then
   echo "Cannot create $DATA_DIR. Run: sudo ./scripts/prepare-data-dir.sh" >&2
   exit 1
 fi
